@@ -71,6 +71,5 @@ const questionSchema = new mongoose.Schema(
 );
 
 questionSchema.index({ 'domain.en': 1, 'facet.code': 1 });
-questionSchema.index({ questionNumber: 1 });
 
 module.exports = mongoose.model('NEOQuestion', questionSchema);
