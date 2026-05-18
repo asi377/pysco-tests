@@ -2,10 +2,15 @@ const mongoose = require('mongoose');
 
 const questionSchema = new mongoose.Schema(
     {
+        testId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Test',
+            required: true,
+        },
+
         questionNumber: {
             type: Number,
             required: true,
-            unique: true,
             min: 1,
         },
 
@@ -42,7 +47,7 @@ const questionSchema = new mongoose.Schema(
         facet: {
             fa: { type: String, required: true, trim: true },
             en: { type: String, required: true, trim: true },
-            code: { type: String, required: true, trim: true }, // مانند N1, E3, C2 جهت پایداری کوئری‌ها
+            code: { type: String, required: true, trim: true },
         },
 
         isReversed: {
@@ -70,6 +75,7 @@ const questionSchema = new mongoose.Schema(
     },
 );
 
-questionSchema.index({ 'domain.en': 1, 'facet.code': 1 });
+questionSchema.index({ testId: 1, questionNumber: 1 }, { unique: true });
+questionSchema.index({ testId: 1, 'domain.en': 1, 'facet.code': 1 });
 
-module.exports = mongoose.model('NEOQuestion', questionSchema);
+module.exports = mongoose.model('Question', questionSchema);

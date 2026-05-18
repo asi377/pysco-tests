@@ -25,7 +25,12 @@ const testSessionSchema = new mongoose.Schema(
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
-            required: true,
+            required: false,
+        },
+
+        guestToken: {
+            type: String,
+            required: false,
         },
 
         testId: {
@@ -53,6 +58,10 @@ const testSessionSchema = new mongoose.Schema(
     },
 );
 
-module.exports = mongoose.model('TestSession', testSessionSchema);
+testSessionSchema.pre('save', function () {
+    if (!this.userId && !this.guestToken) {
+        throw new Error('Session must belong to a user or guest');
+    }
+});
 
-// این فایل رو باید بررسی کنی چون عجله داشتی رفتی و نتونستی کامل بخش ref هر تیکه رو بررسی کنی
+module.exports = mongoose.model('TestSession', testSessionSchema);

@@ -19,7 +19,8 @@ const testSchema = new mongoose.Schema(
         type: {
             type: String,
             required: true,
-            enum: ['neo', 'mbti', 'disc'],
+            lowercase: true,
+            trim: true,
         },
 
         description: {
