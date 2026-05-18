@@ -23,9 +23,19 @@ const userSchema = new mongoose.Schema(
 
         password: {
             type: String,
-            required: [true, 'password required'],
             minlength: [8, 'password must be at least 8 characters'],
             select: false,
+        },
+
+        isGuest: {
+            type: Boolean,
+            default: false,
+        },
+
+        guestToken: {
+            type: String,
+            unique: true,
+            sparse: true,
         },
 
         role: {
@@ -40,8 +50,7 @@ const userSchema = new mongoose.Schema(
 );
 // Hash password before saving
 userSchema.pre('save', async function () {
-    // Only hash if password is modified
-    if (!this.isModified('password')) {
+    if (!this.isModified('password') || !this.password) {
         return;
     }
 
