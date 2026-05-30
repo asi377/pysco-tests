@@ -2,12 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
 * {
-  font-family: 'Vazirmatn', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 body {
-  @apply bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen;
+  @apply bg-brand-50 min-h-screen;
 }
 
 ::-webkit-scrollbar {
@@ -15,13 +17,81 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-100;
+  @apply bg-brand-100;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full;
+  @apply bg-gradient-to-b from-brand-400 to-brand-600 rounded-full;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400;
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(230, 0, 0, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(230, 0, 0, 0.5); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
+.animate-bounce-in { animation: bounce-in 0.5s ease-out forwards; }
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-500 to-brand-700;
+}
+
+.glass {
+  @apply bg-white/70 backdrop-blur-lg shadow-xl;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/30 
+         hover:shadow-xl hover:shadow-brand-500/50 hover:scale-105 active:scale-95 
+         transition-all duration-300 rounded-2xl font-bold;
+}
+
+.btn-secondary {
+  @apply bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-lg shadow-brand-600/30 
+         hover:shadow-xl hover:shadow-brand-600/50 hover:scale-105 active:scale-95 
+         transition-all duration-300 rounded-2xl font-bold;
+}
+
+.btn-outline {
+  @apply border-2 border-brand-500 text-brand-700 hover:bg-brand-50 hover:border-brand-600 
+         active:scale-95 transition-all duration-300 rounded-2xl font-semibold;
+}
+
+.card {
+  @apply bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300;
+}
+
+.card-gradient {
+  @apply bg-gradient-to-br from-white to-brand-50 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300;
+}
+
+.progress-gradient {
+  @apply bg-gradient-to-r from-brand-500 to-brand-700;
+}
+
+.hero-gradient {
+  @apply bg-gradient-to-r from-brand-400 via-brand-500 to-brand-600;
+}
+
+.input-field {
+  @apply w-full pr-12 pl-4 py-4 bg-brand-50 border border-brand-200 rounded-2xl outline-none 
+         focus:border-brand-500 focus:ring-4 focus:ring-brand-200 transition-all text-lg;
 }

@@ -1,8 +1,8 @@
 const express = require('express');
+const { getQuestion } = require('../controllers/questionController');
+
 const router = express.Router();
 
-router.get('/', async (req, res) => {
-    res.redirect('/tests');
-});
+router.get('/', getQuestion);
 
 module.exports = router;
