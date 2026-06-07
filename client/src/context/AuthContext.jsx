@@ -58,7 +58,12 @@ export function AuthProvider({ children }) {
     setUser({ isGuest: true, ...response });
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.auth.logout();
+    } catch (e) {
+      // ignore - clear local state regardless
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('guestToken');
     localStorage.removeItem('user');

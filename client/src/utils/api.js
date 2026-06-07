@@ -34,6 +34,8 @@ export const api = {
       fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
     guest: () => 
       fetchApi('/auth/guest', { method: 'POST' }),
+    logout: () =>
+      fetchApi('/auth/logout', { method: 'POST' }),
   },
   tests: {
     list: (page, limit) => 
@@ -42,10 +44,12 @@ export const api = {
       fetchApi(`/tests/${slug}`),
     checkIncompleteSession: (slug) =>
       fetchApi(`/tests/${slug}/incomplete-session`),
-    questions: (slug, lang = 'fa', page, limit) => 
-      fetchApi(`/tests/${slug}/questions?lang=${lang}&page=${page || 1}&limit=${limit || 50}`),
+    currentQuestion: (slug, sessionId) =>
+      fetchApi(`/tests/${slug}/current-question?sessionId=${sessionId}`),
     createSession: (slug, data) => 
       fetchApi(`/tests/${slug}/session`, { method: 'POST', body: JSON.stringify(data) }),
+    submitOneAnswer: (slug, data) =>
+      fetchApi(`/tests/${slug}/submit-answer`, { method: 'POST', body: JSON.stringify(data) }),
     submitAnswers: (slug, data) => 
       fetchApi(`/tests/${slug}/answers`, { method: 'POST', body: JSON.stringify(data) }),
     getSession: (slug, sessionId) => 

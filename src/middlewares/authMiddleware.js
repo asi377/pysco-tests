@@ -1,9 +1,17 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
+const TokenBlacklist = require('../models/TokenBlacklist');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret';
-
 const ADMIN_HARDCODED_ID = 'admin_hardcoded';
+
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const isTokenBlacklisted = async (token) => {
+  const hash = hashToken(token);
+  return TokenBlacklist.exists({ tokenHash: hash });
+};
 
 const protect = async (req, res, next) => {
   let token;
@@ -21,6 +29,14 @@ const protect = async (req, res, next) => {
   }
 
   try {
+    if (await isTokenBlacklisted(token)) {
+      res.status(401).json({
+        success: false,
+        message: 'توکن منقضی شده است. لطفاً دوباره وارد شوید',
+      });
+      return;
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET);
 
     if (decoded.id === ADMIN_HARDCODED_ID && decoded.role === 'admin') {
@@ -56,6 +72,15 @@ const protect = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth error:', error);
+
+    if (error.name === 'TokenExpiredError') {
+      res.status(401).json({
+        success: false,
+        message: 'نشست شما منقضی شده است. لطفاً دوباره وارد شوید',
+      });
+      return;
+    }
+
     res.status(401).json({
       success: false,
       message: 'توکن نامعتبر یا منقضی شده',
@@ -76,6 +101,11 @@ const optionalAuth = async (req, res, next) => {
   }
 
   try {
+    if (await isTokenBlacklisted(token)) {
+      req.tokenType = 'none';
+      return next();
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET);
 
     if (decoded.id === ADMIN_HARDCODED_ID && decoded.role === 'admin') {

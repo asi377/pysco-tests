@@ -1,13 +1,62 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Test = require('../models/Test');
+const TokenBlacklist = require('../models/TokenBlacklist');
 
 const HARDCODED_ADMIN_EMAIL = 'ali@gmail.com';
 const HARDCODED_ADMIN_TOKEN = '296613824431';
 
+const PASSWORD_MIN_LENGTH = 8;
+const TOKEN_EXPIRY_USER = '24h';
+const TOKEN_EXPIRY_ADMIN = '1h';
+const TOKEN_EXPIRY_GUEST = '7d';
+
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const validatePassword = (password) => {
+  const errors = [];
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    errors.push(`حداقل ${PASSWORD_MIN_LENGTH} کاراکتر`);
+  }
+  if (!/[A-Za-z]/.test(password)) {
+    errors.push('حداقل یک حرف انگلیسی');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('حداقل یک عدد');
+  }
+  return errors;
+};
+
 const register = async (req, res) => {
   try {
     const { fullName, email, password, guestToken, gender } = req.body;
+
+    if (!fullName || !email || !password) {
+      res.status(400).json({
+        success: false,
+        message: 'نام، ایمیل و رمز عبور الزامی است',
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({
+        success: false,
+        message: 'فرمت ایمیل نامعتبر است',
+      });
+      return;
+    }
+
+    const passwordErrors = validatePassword(password);
+    if (passwordErrors.length > 0) {
+      res.status(400).json({
+        success: false,
+        message: `رمز عبور باید شامل: ${passwordErrors.join('، ')} باشد`,
+      });
+      return;
+    }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -72,7 +121,7 @@ const register = async (req, res) => {
       res.status(400).json({
         success: false,
         message: 'اطلاعات وارد شده نامعتبر است',
-        errors: errors,
+        errors,
       });
       return;
     }
@@ -96,11 +145,19 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      res.status(400).json({
+        success: false,
+        message: 'ایمیل و رمز عبور الزامی است',
+      });
+      return;
+    }
+
     if (email === HARDCODED_ADMIN_EMAIL && password === HARDCODED_ADMIN_TOKEN) {
       const adminToken = jwt.sign(
         { id: 'admin_hardcoded', type: 'user', role: 'admin' },
         process.env.JWT_SECRET || 'default-secret',
-        { expiresIn: process.env.JWT_EXPIRE || '365d' }
+        { expiresIn: TOKEN_EXPIRY_ADMIN }
       );
       res.json({
         success: true,
@@ -202,18 +259,53 @@ const guestLogin = async (req, res) => {
   }
 };
 
+const logout = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(400).json({
+        success: false,
+        message: 'توکن یافت نشد',
+      });
+      return;
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.decode(token);
+
+    if (decoded?.exp) {
+      await TokenBlacklist.create({
+        tokenHash: hashToken(token),
+        expiresAt: new Date(decoded.exp * 1000),
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'خروج با موفقیت انجام شد',
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطای سرور',
+    });
+  }
+};
+
 const generateToken = (user, type) => {
   let payload;
+  let expiresIn;
 
   if (type === 'guest') {
     payload = { guestToken: user.guestToken, type: 'guest' };
+    expiresIn = TOKEN_EXPIRY_GUEST;
   } else {
     payload = { id: user._id, type: 'user' };
+    expiresIn = TOKEN_EXPIRY_USER;
   }
 
   const secret = process.env.JWT_SECRET || 'default-secret';
-  const expiresIn = process.env.JWT_EXPIRE || '365d';
-
   return jwt.sign(payload, secret, { expiresIn });
 };
 
@@ -226,4 +318,4 @@ const generateSecureToken = () => {
   return token;
 };
 
-module.exports = { register, login, guestLogin };
+module.exports = { register, login, guestLogin, logout };
