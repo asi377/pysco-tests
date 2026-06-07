@@ -4,74 +4,44 @@ const Result = require('../models/Result');
 const Question = require('../models/neo/Question');
 const User = require('../models/User');
 const { scoreAssessment } = require('../services/neoScoringEngine');
+const AppError = require('../utils/AppError');
 
-const getResult = async (req, res) => {
+const getResult = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
 
-    const test = await Test.findOne({
-      slug: req.params.slug,
-      isActive: true,
-    });
-
+    const test = await Test.findOne({ slug: req.params.slug, isActive: true });
     if (!test) {
-      res.status(404).json({
-        success: false,
-        message: 'تست یافت نشد',
-      });
-      return;
+      return next(new AppError('تست یافت نشد', 404));
     }
 
-    const session = await TestSession.findOne({
-      _id: sessionId,
-      testId: test._id,
-    });
-
+    const session = await TestSession.findOne({ _id: sessionId, testId: test._id });
     if (!session) {
-      res.status(404).json({
-        success: false,
-        message: 'جلسه یافت نشد',
-      });
-      return;
+      return next(new AppError('جلسه یافت نشد', 404));
     }
 
     let userId = null;
     let guestToken = null;
-
-    if (req.tokenType === 'user') {
-      userId = req.user?._id;
-    } else if (req.tokenType === 'guest') {
-      guestToken = req.guest?.guestToken;
-    }
+    if (req.tokenType === 'user') userId = req.user?._id;
+    else if (req.tokenType === 'guest') guestToken = req.guest?.guestToken;
 
     const isOwner =
       (userId && session.userId?.toString() === userId.toString()) ||
       (guestToken && session.guestToken === guestToken);
 
     if (!isOwner) {
-      res.status(403).json({
-        success: false,
-        message: 'دسترسی مجاز نیست',
-      });
-      return;
+      return next(new AppError('دسترسی مجاز نیست', 403));
     }
 
     const existingResult = await Result.findOne({ sessionId: session._id });
     if (existingResult) {
       const resultObj = existingResult.toObject();
       const { validity, ...safeResult } = resultObj;
-      res.json({
-        success: true,
-        message: 'نتیجه از قبل محاسبه شده',
-        data: safeResult,
-      });
+      res.json({ success: true, message: 'نتیجه از قبل محاسبه شده', data: safeResult });
       return;
     }
 
-    const questions = await Question.find({
-      testId: test._id,
-      isActive: true,
-    });
+    const questions = await Question.find({ testId: test._id, isActive: true });
 
     let gender = 'مرد';
     if (userId) {
@@ -80,9 +50,7 @@ const getResult = async (req, res) => {
     }
 
     const questionNumMap = {};
-    questions.forEach(q => {
-      questionNumMap[q._id.toString()] = q.questionNumber;
-    });
+    questions.forEach(q => { questionNumMap[q._id.toString()] = q.questionNumber; });
 
     const userResponses = {};
     session.answers.forEach(a => {
@@ -107,21 +75,13 @@ const getResult = async (req, res) => {
     const resultObj = result.toObject();
     const { validity, ...safeResult } = resultObj;
 
-    res.json({
-      success: true,
-      message: 'نتیجه با موفقیت محاسبه شد',
-      data: safeResult,
-    });
+    res.json({ success: true, message: 'نتیجه با موفقیت محاسبه شد', data: safeResult });
   } catch (error) {
-    console.error('Result calculation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطای سرور',
-    });
+    next(error);
   }
 };
 
-const getMyResults = async (req, res) => {
+const getMyResults = async (req, res, next) => {
   try {
     const { testSlug, page = '1', limit = '10' } = req.query;
     const pageNum = parseInt(page) || 1;
@@ -129,7 +89,6 @@ const getMyResults = async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     const query = {};
-
     if (req.tokenType === 'user') {
       query.userId = req.user?._id;
     } else if (req.tokenType === 'guest') {
@@ -138,18 +97,13 @@ const getMyResults = async (req, res) => {
 
     if (testSlug) {
       const test = await Test.findOne({ slug: testSlug });
-      if (test) {
-        query.testId = test._id;
-      }
+      if (test) query.testId = test._id;
     }
 
     const results = await Result.find(query)
       .populate('testId', 'slug title type')
       .populate('sessionId', 'isCompleted startedAt completedAt')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+      .sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean();
 
     const cleanedResults = results.map(r => {
       const { validity, ...rest } = r;
@@ -162,24 +116,15 @@ const getMyResults = async (req, res) => {
       success: true,
       data: {
         results: cleanedResults,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages: Math.ceil(total / limitNum),
-        },
+        pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
       },
     });
   } catch (error) {
-    console.error('Results fetch error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطای سرور',
-    });
+    next(error);
   }
 };
 
-const getIncompleteSessions = async (req, res) => {
+const getIncompleteSessions = async (req, res, next) => {
   try {
     const query = {};
     if (req.tokenType === 'user') {
@@ -187,53 +132,44 @@ const getIncompleteSessions = async (req, res) => {
     } else if (req.tokenType === 'guest') {
       query.guestToken = req.guest?.guestToken;
     } else {
-      res.status(401).json({ success: false, message: 'احراز هویت نشدید' });
-      return;
+      return next(new AppError('احراز هویت نشدید', 401));
     }
 
     const sessions = await TestSession.find({ ...query, isCompleted: false })
       .populate('testId', 'slug title type')
-      .sort({ startedAt: -1 })
-      .lean();
+      .sort({ startedAt: -1 }).lean();
 
-    const enriched = await Promise.all(sessions.map(async (s) => {
+    const enriched = await Promise.all(sessions.map(async s => {
       const total = await Question.countDocuments({ testId: s.testId?._id, isActive: true });
       return {
-        _id: s._id,
-        testId: s.testId,
-        startedAt: s.startedAt,
-        answered: s.answers.length,
-        total,
+        _id: s._id, testId: s.testId, startedAt: s.startedAt,
+        answered: s.answers.length, total,
         progress: total > 0 ? Math.round((s.answers.length / total) * 100) : 0,
       };
     }));
 
     res.json({ success: true, data: { sessions: enriched } });
   } catch (error) {
-    console.error('Incomplete sessions fetch error:', error);
-    res.status(500).json({ success: false, message: 'خطای سرور' });
+    next(error);
   }
 };
 
-const calculateScore = async (req, res) => {
+const calculateScore = async (req, res, next) => {
   try {
     const { sessionId } = req.body;
 
     if (!sessionId) {
-      res.status(400).json({ success: false, message: 'sessionId الزامی است' });
-      return;
+      return next(new AppError('sessionId الزامی است', 400));
     }
 
     const session = await TestSession.findById(sessionId);
     if (!session) {
-      res.status(404).json({ success: false, message: 'جلسه یافت نشد' });
-      return;
+      return next(new AppError('جلسه یافت نشد', 404));
     }
 
     const test = await Test.findById(session.testId);
     if (!test) {
-      res.status(404).json({ success: false, message: 'تست یافت نشد' });
-      return;
+      return next(new AppError('تست یافت نشد', 404));
     }
 
     const questions = await Question.find({ testId: test._id, isActive: true });
@@ -256,32 +192,27 @@ const calculateScore = async (req, res) => {
 
     res.json({ success: true, data: engineResult });
   } catch (error) {
-    console.error('Calculate score error:', error);
-    res.status(500).json({ success: false, message: 'خطای سرور' });
+    next(error);
   }
 };
 
-const shareResult = async (req, res) => {
+const shareResult = async (req, res, next) => {
   try {
     const { sessionId } = req.body;
 
     if (!sessionId) {
-      res.status(400).json({ success: false, message: 'sessionId الزامی است' });
-      return;
+      return next(new AppError('sessionId الزامی است', 400));
     }
 
     const result = await Result.findOne({ sessionId });
-
     if (!result) {
-      res.status(404).json({ success: false, message: 'نتیجه یافت نشد' });
-      return;
+      return next(new AppError('نتیجه یافت نشد', 404));
     }
 
     if (req.tokenType === 'user') {
       const session = await TestSession.findById(sessionId);
       if (!session || session.userId?.toString() !== req.user?._id.toString()) {
-        res.status(403).json({ success: false, message: 'دسترسی مجاز نیست' });
-        return;
+        return next(new AppError('دسترسی مجاز نیست', 403));
       }
     }
 
@@ -290,30 +221,26 @@ const shareResult = async (req, res) => {
 
     res.json({ success: true, message: 'نتیجه با موفقیت برای مدیر ارسال شد' });
   } catch (error) {
-    console.error('Share result error:', error);
-    res.status(500).json({ success: false, message: 'خطا در ارسال نتیجه' });
+    next(error);
   }
 };
 
-const deleteResult = async (req, res) => {
+const deleteResult = async (req, res, next) => {
   try {
     const { id } = req.params;
 
     const result = await Result.findById(id);
     if (!result) {
-      res.status(404).json({ success: false, message: 'نتیجه یافت نشد' });
-      return;
+      return next(new AppError('نتیجه یافت نشد', 404));
     }
 
     if (req.tokenType === 'user') {
       if (result.userId?.toString() !== req.user?._id.toString()) {
-        res.status(403).json({ success: false, message: 'دسترسی مجاز نیست' });
-        return;
+        return next(new AppError('دسترسی مجاز نیست', 403));
       }
     } else if (req.tokenType === 'guest') {
       if (result.guestToken !== req.guest?.guestToken) {
-        res.status(403).json({ success: false, message: 'دسترسی مجاز نیست' });
-        return;
+        return next(new AppError('دسترسی مجاز نیست', 403));
       }
     }
 
@@ -322,12 +249,11 @@ const deleteResult = async (req, res) => {
 
     res.json({ success: true, message: 'نتیجه با موفقیت حذف شد' });
   } catch (error) {
-    console.error('Delete result error:', error);
-    res.status(500).json({ success: false, message: 'خطا در حذف نتیجه' });
+    next(error);
   }
 };
 
-const getAdminSharedResults = async (req, res) => {
+const getAdminSharedResults = async (req, res, next) => {
   try {
     const { page = '1', limit = '20' } = req.query;
     const pageNum = parseInt(page) || 1;
@@ -338,10 +264,7 @@ const getAdminSharedResults = async (req, res) => {
       .populate('testId', 'slug title type')
       .populate('sessionId', 'isCompleted startedAt completedAt')
       .populate('userId', 'fullName email gender')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+      .sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean();
 
     const total = await Result.countDocuments({ sharedWithAdmin: true });
 
@@ -356,18 +279,15 @@ const getAdminSharedResults = async (req, res) => {
       success: true,
       data: {
         results: enrichedResults,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages: Math.ceil(total / limitNum),
-        },
+        pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
       },
     });
   } catch (error) {
-    console.error('Admin shared results error:', error);
-    res.status(500).json({ success: false, message: 'خطای سرور' });
+    next(error);
   }
 };
 
-module.exports = { getResult, getMyResults, getIncompleteSessions, calculateScore, shareResult, deleteResult, getAdminSharedResults };
+module.exports = {
+  getResult, getMyResults, getIncompleteSessions,
+  calculateScore, shareResult, deleteResult, getAdminSharedResults,
+};

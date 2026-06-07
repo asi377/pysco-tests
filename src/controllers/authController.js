@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Test = require('../models/Test');
 const TokenBlacklist = require('../models/TokenBlacklist');
+const AppError = require('../utils/AppError');
 
 const HARDCODED_ADMIN_EMAIL = 'ali@gmail.com';
 const HARDCODED_ADMIN_TOKEN = '296613824431';
@@ -16,55 +17,33 @@ const hashToken = (token) => crypto.createHash('sha256').update(token).digest('h
 
 const validatePassword = (password) => {
   const errors = [];
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    errors.push(`حداقل ${PASSWORD_MIN_LENGTH} کاراکتر`);
-  }
-  if (!/[A-Za-z]/.test(password)) {
-    errors.push('حداقل یک حرف انگلیسی');
-  }
-  if (!/[0-9]/.test(password)) {
-    errors.push('حداقل یک عدد');
-  }
+  if (password.length < PASSWORD_MIN_LENGTH) errors.push(`حداقل ${PASSWORD_MIN_LENGTH} کاراکتر`);
+  if (!/[A-Za-z]/.test(password)) errors.push('حداقل یک حرف انگلیسی');
+  if (!/[0-9]/.test(password)) errors.push('حداقل یک عدد');
   return errors;
 };
 
-const register = async (req, res) => {
+const register = async (req, res, next) => {
   try {
     const { fullName, email, password, guestToken, gender } = req.body;
 
     if (!fullName || !email || !password) {
-      res.status(400).json({
-        success: false,
-        message: 'نام، ایمیل و رمز عبور الزامی است',
-      });
-      return;
+      return next(new AppError('نام، ایمیل و رمز عبور الزامی است', 400));
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      res.status(400).json({
-        success: false,
-        message: 'فرمت ایمیل نامعتبر است',
-      });
-      return;
+      return next(new AppError('فرمت ایمیل نامعتبر است', 400));
     }
 
     const passwordErrors = validatePassword(password);
     if (passwordErrors.length > 0) {
-      res.status(400).json({
-        success: false,
-        message: `رمز عبور باید شامل: ${passwordErrors.join('، ')} باشد`,
-      });
-      return;
+      return next(new AppError(`رمز عبور باید شامل: ${passwordErrors.join('، ')} باشد`, 400));
     }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      res.status(400).json({
-        success: false,
-        message: 'این ایمیل قبلاً ثبت شده است',
-      });
-      return;
+      return next(new AppError('این ایمیل قبلاً ثبت شده است', 400));
     }
 
     let user;
@@ -72,85 +51,39 @@ const register = async (req, res) => {
 
     if (guestToken) {
       const guestUser = await User.findOne({ guestToken, isGuest: true });
-      if (guestUser) {
-        guestUser.fullName = fullName;
-        guestUser.email = email;
-        guestUser.password = password;
-        guestUser.isGuest = false;
-        guestUser.guestToken = undefined;
-        await guestUser.save();
-
-        user = guestUser;
-        upgraded = true;
-      } else {
-        res.status(400).json({
-          success: false,
-          message: 'توکن مهمان نامعتبر است',
-        });
-        return;
+      if (!guestUser) {
+        return next(new AppError('توکن مهمان نامعتبر است', 400));
       }
+      guestUser.fullName = fullName;
+      guestUser.email = email;
+      guestUser.password = password;
+      guestUser.isGuest = false;
+      guestUser.guestToken = undefined;
+      await guestUser.save();
+      user = guestUser;
+      upgraded = true;
     } else {
-      user = await User.create({
-        fullName,
-        email,
-        password,
-        gender: gender || '',
-      });
+      user = await User.create({ fullName, email, password, gender: gender || '' });
     }
 
     const token = generateToken(user, 'user');
 
     res.status(201).json({
       success: true,
-      message: upgraded
-        ? 'ثبت‌نام با موفقیت انجام شد (ارتقا از مهمان)'
-        : 'ثبت‌نام با موفقیت انجام شد',
-      data: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        token,
-      },
+      message: upgraded ? 'ثبت‌نام با موفقیت انجام شد (ارتقا از مهمان)' : 'ثبت‌نام با موفقیت انجام شد',
+      data: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, token },
     });
   } catch (error) {
-    console.error('Registration error:', error);
-
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      res.status(400).json({
-        success: false,
-        message: 'اطلاعات وارد شده نامعتبر است',
-        errors,
-      });
-      return;
-    }
-
-    if (error.code === 11000) {
-      res.status(400).json({
-        success: false,
-        message: 'این ایمیل قبلاً ثبت شده است',
-      });
-      return;
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'خطای سرور. لطفاً دوباره تلاش کنید',
-    });
+    next(error);
   }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      res.status(400).json({
-        success: false,
-        message: 'ایمیل و رمز عبور الزامی است',
-      });
-      return;
+      return next(new AppError('ایمیل و رمز عبور الزامی است', 400));
     }
 
     if (email === HARDCODED_ADMIN_EMAIL && password === HARDCODED_ADMIN_TOKEN) {
@@ -162,13 +95,7 @@ const login = async (req, res) => {
       res.json({
         success: true,
         message: 'ورود ادمین با موفقیت انجام شد',
-        data: {
-          id: 'admin_hardcoded',
-          fullName: 'مدیر سیستم',
-          email: HARDCODED_ADMIN_EMAIL,
-          role: 'admin',
-          token: adminToken,
-        },
+        data: { id: 'admin_hardcoded', fullName: 'مدیر سیستم', email: HARDCODED_ADMIN_EMAIL, role: 'admin', token: adminToken },
       });
       return;
     }
@@ -176,28 +103,16 @@ const login = async (req, res) => {
     const user = await User.findOne({ email }).select('+password');
 
     if (!user) {
-      res.status(401).json({
-        success: false,
-        message: 'ایمیل یا رمز عبور اشتباه است',
-      });
-      return;
+      return next(new AppError('ایمیل یا رمز عبور اشتباه است', 401));
     }
 
     if (user.isGuest) {
-      res.status(401).json({
-        success: false,
-        message: 'این حساب یک حساب مهمان است. لطفاً ثبت‌نام کنید',
-      });
-      return;
+      return next(new AppError('این حساب یک حساب مهمان است. لطفاً ثبت‌نام کنید', 401));
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      res.status(401).json({
-        success: false,
-        message: 'ایمیل یا رمز عبور اشتباه است',
-      });
-      return;
+      return next(new AppError('ایمیل یا رمز عبور اشتباه است', 401));
     }
 
     const token = generateToken(user, 'user');
@@ -205,24 +120,14 @@ const login = async (req, res) => {
     res.json({
       success: true,
       message: 'ورود با موفقیت انجام شد',
-      data: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        token,
-      },
+      data: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, token },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطای سرور. لطفاً دوباره تلاش کنید',
-    });
+    next(error);
   }
 };
 
-const guestLogin = async (req, res) => {
+const guestLogin = async (req, res, next) => {
   try {
     const tests = await Test.find({ isActive: true });
 
@@ -243,31 +148,18 @@ const guestLogin = async (req, res) => {
       guestToken: guestUser.guestToken,
       fullName: 'مهمان',
       isGuest: true,
-      tests: tests.map(t => ({
-        id: t._id,
-        slug: t.slug,
-        title: t.title,
-        type: t.type,
-      })),
+      tests: tests.map(t => ({ id: t._id, slug: t.slug, title: t.title, type: t.type })),
     });
   } catch (error) {
-    console.error('Guest creation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطای سرور. لطفاً دوباره تلاش کنید',
-    });
+    next(error);
   }
 };
 
-const logout = async (req, res) => {
+const logout = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-      res.status(400).json({
-        success: false,
-        message: 'توکن یافت نشد',
-      });
-      return;
+      return next(new AppError('توکن یافت نشد', 400));
     }
 
     const token = authHeader.split(' ')[1];
@@ -280,16 +172,9 @@ const logout = async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      message: 'خروج با موفقیت انجام شد',
-    });
+    res.json({ success: true, message: 'خروج با موفقیت انجام شد' });
   } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطای سرور',
-    });
+    next(error);
   }
 };
 
