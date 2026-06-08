@@ -1,3 +1,15 @@
+// ============================================================
+// 1) UNCAUGHT EXCEPTION — catches synchronous throws that
+//    no try/catch or Express chain handled.
+//    Process state is unsafe after this, so we log and exit
+//    immediately without attempting graceful shutdown.
+// ============================================================
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION! Shutting down...');
+  console.error(err.name, err.message, err.stack);
+  process.exit(1);
+});
+
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -66,8 +78,7 @@ app.get('/api/v1', (_req, res) => {
   res.json({ message: 'Personality Tests API v1 is running' });
 });
 
-app.use(errorHandler);
-
+// 404 handler — must come before Express error handler
 app.use((_req, res) => {
   res.status(404).json({
     success: false,
@@ -75,8 +86,29 @@ app.use((_req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+// ============================================================
+// 3) EXPRESS ERROR HANDLER — catches errors passed via
+//    next(err) from routes/controllers. This includes both
+//    AppError (operational) and unexpected errors. Operational
+//    errors get their specific message; unexpected ones get a
+//    generic 500 response so internals never leak to the client.
+// ============================================================
+app.use(errorHandler);
+
+const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+
+// ============================================================
+// 2) UNHANDLED REJECTION — catches promise rejections that
+//    bypassed catchAsync (e.g. background promises, forgotten
+//    .catch()). We attempt a graceful shutdown: stop accepting
+//    new requests, let in-flight ones finish, then exit.
+// ============================================================
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION! Shutting down gracefully...');
+  console.error(err.name, err.message, err.stack);
+  server.close(() => process.exit(1));
 });
 
 module.exports = app;

@@ -15,7 +15,6 @@ const handleValidationErrorDB = (err) => {
     const errors = Object.values(err.errors).map((e) => e.message);
     const message = `اطلاعات وارد شده نامعتبر است: ${errors.join('، ')}`;
     return new AppError(message, 400);
-    console.log(err);
 };
 
 const handleJWTError = () =>
