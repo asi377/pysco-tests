@@ -68,4 +68,4 @@ const errorHandler = (err, _req, res, _next) => {
     });
 };
 
-module.exports = { AppError, errorHandler };
+module.exports = { errorHandler };
