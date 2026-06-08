@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<void> => {
     const response: any = await api.auth.login({ email, password });
     const userData = response.data || response;
-    localStorage.setItem('token', userData.token);
+    localStorage.setItem('token', userData.accessToken);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     setIsGuest(false);
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userData = response.data || response;
     
     localStorage.removeItem('guestToken');
-    localStorage.setItem('token', userData.token);
+    localStorage.setItem('token', userData.accessToken);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     setIsGuest(false);
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const guestLogin = async (): Promise<void> => {
     const response: any = await api.auth.guest();
     localStorage.setItem('guestToken', response.guestToken);
-    localStorage.setItem('token', response.token);
+    localStorage.setItem('token', response.accessToken);
     setIsGuest(true);
     setUser({ isGuest: true, ...response });
   };

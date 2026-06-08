@@ -32,6 +32,10 @@ const protect = async (req, res, next) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    if (decoded.type === 'refresh') {
+      return next(new AppError('توکن نامعتبر است', 401));
+    }
+
     if (decoded.id === ADMIN_HARDCODED_ID && decoded.role === 'admin') {
       req.user = { _id: ADMIN_HARDCODED_ID, role: 'admin', email: 'ali@gmail.com', fullName: 'مدیر سیستم' };
       req.tokenType = 'user';
@@ -79,6 +83,11 @@ const optionalAuth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    if (decoded.type === 'refresh') {
+      req.tokenType = 'none';
+      return next();
+    }
 
     if (decoded.id === ADMIN_HARDCODED_ID && decoded.role === 'admin') {
       req.user = { _id: ADMIN_HARDCODED_ID, role: 'admin', email: 'ali@gmail.com', fullName: 'مدیر سیستم' };
