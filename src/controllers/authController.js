@@ -9,37 +9,14 @@ const catchAsync = require('../utils/catchAsync');
 const HARDCODED_ADMIN_EMAIL = 'ali@gmail.com';
 const HARDCODED_ADMIN_TOKEN = '296613824431';
 
-const PASSWORD_MIN_LENGTH = 8;
 const TOKEN_EXPIRY_USER = '24h';
 const TOKEN_EXPIRY_ADMIN = '1h';
 const TOKEN_EXPIRY_GUEST = '7d';
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
-const validatePassword = (password) => {
-  const errors = [];
-  if (password.length < PASSWORD_MIN_LENGTH) errors.push(`حداقل ${PASSWORD_MIN_LENGTH} کاراکتر`);
-  if (!/[A-Za-z]/.test(password)) errors.push('حداقل یک حرف انگلیسی');
-  if (!/[0-9]/.test(password)) errors.push('حداقل یک عدد');
-  return errors;
-};
-
 const register = catchAsync(async (req, res, next) => {
   const { fullName, email, password, guestToken, gender } = req.body;
-
-  if (!fullName || !email || !password) {
-    return next(new AppError('نام، ایمیل و رمز عبور الزامی است', 400));
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return next(new AppError('فرمت ایمیل نامعتبر است', 400));
-  }
-
-  const passwordErrors = validatePassword(password);
-  if (passwordErrors.length > 0) {
-    return next(new AppError(`رمز عبور باید شامل: ${passwordErrors.join('، ')} باشد`, 400));
-  }
 
   const existingUser = await User.findOne({ email });
   if (existingUser) {
@@ -77,10 +54,6 @@ const register = catchAsync(async (req, res, next) => {
 
 const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return next(new AppError('ایمیل و رمز عبور الزامی است', 400));
-  }
 
   if (email === HARDCODED_ADMIN_EMAIL && password === HARDCODED_ADMIN_TOKEN) {
     const adminToken = jwt.sign(

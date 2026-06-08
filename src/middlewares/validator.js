@@ -1,4 +1,5 @@
 const validator = require('validator');
+const AppError = require('../utils/AppError');
 
 const registerValidator = (req, res, next) => {
   const { fullName, email, password } = req.body;
@@ -25,11 +26,7 @@ const registerValidator = (req, res, next) => {
   }
 
   if (errors.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'خطا در اعتبارسنجی',
-      errors,
-    });
+    return next(new AppError(errors.join(' | '), 400));
   }
 
   next();
@@ -48,11 +45,7 @@ const loginValidator = (req, res, next) => {
   }
 
   if (errors.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'خطا در اعتبارسنجی',
-      errors,
-    });
+    return next(new AppError(errors.join(' | '), 400));
   }
 
   next();
@@ -68,11 +61,6 @@ const answerValidator = (req, res, next) => {
 
   if (!Array.isArray(answers) || answers.length === 0) {
     errors.push('پاسخ‌ها باید یک آرایه باشند');
-    return res.status(400).json({
-      success: false,
-      message: 'خطا در اعتبارسنجی',
-      errors,
-    });
   }
 
   for (const ans of answers) {
@@ -85,11 +73,7 @@ const answerValidator = (req, res, next) => {
   }
 
   if (errors.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'خطا در اعتبارسنجی',
-      errors,
-    });
+    return next(new AppError(errors.join(' | '), 400));
   }
 
   next();
@@ -115,11 +99,7 @@ const singleAnswerValidator = (req, res, next) => {
   }
 
   if (errors.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'خطا در اعتبارسنجی',
-      errors,
-    });
+    return next(new AppError(errors.join(' | '), 400));
   }
 
   next();
