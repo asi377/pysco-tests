@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const TokenBlacklist = require('../models/TokenBlacklist');
-const AppError = require('../utils/AppError');
+const AppError = require('../domain/errors/AppError');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret';
 const ADMIN_HARDCODED_ID = 'admin_hardcoded';
