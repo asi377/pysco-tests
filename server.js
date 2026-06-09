@@ -19,8 +19,8 @@ const cookieParser = require('cookie-parser');
 
 const connectDB = require('./src/config/db');
 const authRouter = require('./src/api/auth/auth.routes');
-const testRouter = require('./src/routes/testRoutes');
-const resultRouter = require('./src/routes/resultRoutes');
+const testRouter = require('./src/api/test/test.routes');
+const resultRouter = require('./src/api/result/result.routes');
 const { errorHandler } = require('./src/api/middlewares/errorHandler.middleware');
 
 dotenv.config();
