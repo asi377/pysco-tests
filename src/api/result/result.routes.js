@@ -1,5 +1,5 @@
 const express = require('express');
-const { protect, optionalAuth, adminOnly } = require('../../middlewares/authMiddleware');
+const { protect, optionalAuth, adminOnly } = require('../middlewares/authMiddleware');
 const {
   getResult, getMyResults, getIncompleteSessions,
   calculateScore, shareResult, deleteResult, getAdminSharedResults,

@@ -3,7 +3,7 @@ const {
   registerValidator,
   loginValidator,
 } = require('../middlewares/validator');
-const { protect } = require('../../middlewares/authMiddleware');
+const { protect } = require('../middlewares/authMiddleware');
 const {
   register,
   login,

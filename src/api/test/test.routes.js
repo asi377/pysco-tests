@@ -1,5 +1,5 @@
 const express = require('express');
-const { optionalAuth } = require('../../middlewares/authMiddleware');
+const { optionalAuth } = require('../middlewares/authMiddleware');
 const {
   sessionValidator,
   singleAnswerValidator,
